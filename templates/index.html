@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>CourtCoach AI</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+  <main class="wrap">
+    <header class="center">
+      <!-- Use your PNG logo -->
+      <img src="{{ url_for('static', filename='logo.png') }}" alt="CourtCoach AI" class="logo">
+    </header>
+
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash">{{ messages[-1] }}</div>
+      {% endif %}
+    {% endwith %}
+
+    <section class="card center search">
+      <input class="searchbar" id="searchbar" placeholder="Search: made / miss" {% if not results %}disabled{% endif %}>
+      <button class="btn btn-primary" id="searchbtn" {% if not results %}disabled{% endif %}>Search</button>
+    </section>
+
+    <section class="upload center">
+      <form id="upload-form" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" class="upload-pill">
+        <div class="pill">
+          <span class="plus">+</span>
+          <input type="file" name="video" id="video" required>
+          <button type="submit" class="go">→</button>
+        </div>
+
+        <div class="options">
+          <!-- <label>Max dimension(px): <input type="number" name="max_dim" value="0" min="0"></label>
+          <label>Process every Nth frame: <input type="number" name="every_n" value="1" min="1"></label>
+          <label>Context seconds: <input type="number" step="0.1" name="context_sec" value="3.0" min="0"></label> -->
+          <label><input type="checkbox" name="use_raw"> Save raw clips (unannotated)</label>
+        </div>
+
+        {% if not api_key_present %}
+          <p class="note">No API key found. Create <code>api_key.txt</code> with your Roboflow key in the project folder.</p>
+        {% endif %}
+      </form>
+
+      {% if job_id and not results %}
+      <div id="progress-container" class="progress-container">
+        <div class="progress-bar" id="progress-bar"></div>
+        <p id="progress-text">Preparing…</p>
+      </div>
+      {% endif %}
+    </section>
+
+    {% if results %}
+    <section class="status center">
+      <div class="status-line">
+        <span class="ok">✔</span>
+        <span>Processing complete.</span>
+        <span class="stat">🏀 Total makes: {{ results.made_total }}</span>
+        <span class="stat">❌ Total misses: {{ results.missed_total }}</span>
+      </div>
+
+      <div class="downloads">
+        <div>
+          <h4>Outputs</h4>
+          <ul id="outputs-list">
+            <li data-kind="annotated">
+              <a href="{{ url_for('download', subdir='outputs', filename=results.output_video) }}">Annotated video</a>
+            </li>
+            {% if results.made_all %}
+            <li data-kind="made">
+              <a href="{{ url_for('download', subdir='clips', filename=results.made_all) }}">All MADE concatenated</a>
+            </li>
+            {% endif %}
+            {% if results.miss_all %}
+            <li data-kind="miss">
+              <a href="{{ url_for('download', subdir='clips', filename=results.miss_all) }}">All MISSED concatenated</a>
+            </li>
+            {% endif %}
+          </ul>
+        </div>
+
+        <div>
+          <h4>Per-event clips</h4>
+          <div id="clips" class="clips">
+            {% for p in results.made_clips %}
+              <a class="clip pill-ok" data-kind="made" href="{{ url_for('download', subdir='clips', filename=p) }}">{{ p }}</a>
+            {% endfor %}
+            {% for p in results.miss_clips %}
+              <a class="clip pill-miss" data-kind="miss" href="{{ url_for('download', subdir='clips', filename=p) }}">{{ p }}</a>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+    </section>
+    {% endif %}
+
+  </main>
+
+  <script>
+    // JOB_ID comes from Flask; tojson avoids quote issues
+    const JOB_ID = "{{ job_id|default('', true)|e }}";
+  if (JOB_ID) {
+      const bar = document.getElementById('progress-bar');
+      const text = document.getElementById('progress-text');
+      const poll = setInterval(async () => {
+        try {
+          const res = await fetch(`/progress/${JOB_ID}`);
+          if (!res.ok) return;
+          const data = await res.json();
+          if (data.status === 'error') {
+            text.textContent = 'Error: ' + (data.error || 'unknown');
+            clearInterval(poll);
+            return;
+          }
+          const pct = data.progress || 0;
+          bar.style.width = pct + '%';
+          const eta = data.eta_seconds != null ? Math.max(0, Math.round(data.eta_seconds)) : null;
+          text.textContent = eta != null ? `Processing: ${pct}% · ~${eta}s left` : `Processing: ${pct}%`;
+          if (data.results_ready) {
+            clearInterval(poll);
+            window.location.replace(`/job/${JOB_ID}`);
+          }
+        } catch (_) {}
+      }, 1000);
+    }
+
+    // Search filter for results (made / miss)
+    function applyFilter(q) {
+      q = (q || '').trim().toLowerCase();
+      const items = document.querySelectorAll('#clips .clip, #outputs-list li');
+      items.forEach(el => {
+        const kind = (el.dataset.kind || '').toLowerCase();
+        if (!q || q === 'all') {
+          el.style.display = '';
+        } else if (q.includes('made')) {
+          el.style.display = kind === 'made' ? '' : 'none';
+        } else if (q.includes('miss')) {
+          el.style.display = kind === 'miss' ? '' : 'none';
+        } else {
+          el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none';
+        }
+      });
+    }
+
+    const sb = document.getElementById('searchbar');
+    const sbBtn = document.getElementById('searchbtn');
+    if (sb) sb.addEventListener('input', () => applyFilter(sb.value));
+    if (sbBtn) sbBtn.addEventListener('click', (e) => { e.preventDefault(); applyFilter(sb.value); });
+  </script>
+</body>
+</html>

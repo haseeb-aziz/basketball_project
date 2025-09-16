@@ -1,0 +1,10 @@
+# CPU-only environment
+inference>=0.9.0
+supervision>=0.23.0
+tqdm>=4.66.0
+numpy>=1.24.0
+opencv-python>=4.8.0.76
+flask
+# Install these two from the command I provide (kept here as a reminder):
+# pip install git+https://github.com/roboflow/supervision.git
+# pip install git+https://github.com/roboflow/sports.git@feat/basketball
