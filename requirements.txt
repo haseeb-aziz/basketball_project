@@ -6,6 +6,7 @@ numpy>=1.24.0
 opencv-python-headless==4.8.0.76
 flask
 gunicorn
-# Install these two from the command I provide (kept here as a reminder):
-# pip install git+https://github.com/roboflow/supervision.git
-# pip install git+https://github.com/roboflow/sports.git@feat/basketball
+
+# Extra dependencies
+git+https://github.com/roboflow/supervision.git
+git+https://github.com/roboflow/sports.git@feat/basketball
