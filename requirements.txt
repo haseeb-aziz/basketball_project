@@ -1,12 +1,18 @@
-# CPU-only environment
-inference>=0.9.0
-supervision>=0.23.0
-tqdm>=4.66.0
-numpy>=1.24.0
-opencv-python-headless==4.8.0.76
+# Core deps
 flask
 gunicorn
+tqdm>=4.66.0
+numpy>=1.24.0
 
-# Extra dependencies
+# Computer Vision
+opencv-python==4.8.1.78
+
+# Inference + extras (installs PyTorch, Transformers, SAM, CLIP, YOLO-World, GroundingDINO, etc.)
+inference[transformers,sam,clip,gaze,yolo-world,grounding-dino]>=0.55.2
+
+# Supervision (Roboflow utils)
+supervision>=0.27.0rc1
 git+https://github.com/roboflow/supervision.git
+
+# Sports repo (basketball branch)
 git+https://github.com/roboflow/sports.git@feat/basketball
