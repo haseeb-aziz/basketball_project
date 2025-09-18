@@ -1,1 +1,1 @@
-web: gunicorn app:app --bind 0.0.0.0:$PORT
+web: pip uninstall -y opencv-python && pip install --upgrade --force-reinstall opencv-python-headless && gunicorn app:app --bind 0.0.0.0:$PORT
